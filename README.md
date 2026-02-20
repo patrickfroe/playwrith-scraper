@@ -43,6 +43,19 @@ npm start
 5. Screenshot + Markdown-Preview prüfen
 6. Über **Download PNG** / **Download MD** herunterladen
 
+
+## Cookie-Consent Helper
+
+Für wiederverwendbare Scraping-Flows gibt es jetzt eine Utility mit Pre-Consent und Banner-Handling:
+
+```ts
+import { prepareConsent, handleCookieConsent } from "./src/render/cookieConsent";
+
+await prepareConsent(context, page);
+await page.goto(url);
+await handleCookieConsent(page, context);
+```
+
 ## API Kurzüberblick
 
 - `POST /render`

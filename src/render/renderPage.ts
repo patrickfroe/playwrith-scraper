@@ -1,5 +1,6 @@
 import { chromium } from "playwright";
 import { extractMarkdownFromHtml } from "./markdown";
+import { handleCookieConsent, prepareConsent } from "./cookieConsent";
 import type { RenderMetadata } from "../store/artifactStore";
 
 export const viewportPresets = {
@@ -36,6 +37,7 @@ export async function renderPage(url: string, options: RenderOptions): Promise<R
       userAgent: options.userAgent || undefined
     });
     const page = await context.newPage();
+    await prepareConsent(context, page, { targetUrl: url });
 
     if (options.blockResources.length > 0) {
       const blocked = new Set(options.blockResources);
@@ -49,6 +51,7 @@ export async function renderPage(url: string, options: RenderOptions): Promise<R
     }
 
     const response = await page.goto(url, { waitUntil: options.waitUntil, timeout: options.timeoutMs });
+    await handleCookieConsent(page, context);
 
     if (options.waitForSelector?.trim()) {
       await page.waitForSelector(options.waitForSelector.trim(), { timeout: options.timeoutMs });
