@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Render URL → Screenshot + Markdown</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 960px; margin: 2rem auto; padding: 0 1rem; }
+    form { display: grid; gap: 0.75rem; }
+    label { display: grid; gap: 0.25rem; }
+    .row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.75rem; }
+    textarea { width: 100%; min-height: 240px; }
+    img { max-width: 100%; border: 1px solid #ddd; margin-top: 1rem; }
+    .hidden { display: none; }
+    .error { color: #b00020; }
+    .meta { background: #f8f8f8; padding: 0.75rem; }
+  </style>
+</head>
+<body>
+  <h1>Render URL → Screenshot + Markdown</h1>
+  <form id="render-form">
+    <label>URL
+      <input id="url" type="url" required placeholder="https://example.com" />
+    </label>
+
+    <details>
+      <summary>Advanced settings</summary>
+      <div class="row">
+        <label>waitUntil
+          <select id="waitUntil">
+            <option value="networkidle" selected>networkidle</option>
+            <option value="load">load</option>
+            <option value="domcontentloaded">domcontentloaded</option>
+          </select>
+        </label>
+        <label>timeoutMs
+          <input id="timeoutMs" type="number" value="30000" min="1" max="120000" />
+        </label>
+      </div>
+      <div class="row">
+        <label>viewportPreset
+          <select id="viewportPreset">
+            <option>Mobile (390x844)</option>
+            <option>Tablet (768x1024)</option>
+            <option selected>Desktop (1280x720)</option>
+            <option>Desktop HD (1920x1080)</option>
+          </select>
+        </label>
+        <label>fullPage
+          <input id="fullPage" type="checkbox" checked />
+        </label>
+      </div>
+      <label>waitForSelector
+        <input id="waitForSelector" type="text" placeholder="optional CSS selector" />
+      </label>
+      <label>userAgent
+        <input id="userAgent" type="text" placeholder="optional user agent" />
+      </label>
+      <fieldset>
+        <legend>Block resources</legend>
+        <label><input type="checkbox" value="images" class="blockResource" /> images</label>
+        <label><input type="checkbox" value="fonts" class="blockResource" /> fonts</label>
+        <label><input type="checkbox" value="media" class="blockResource" /> media</label>
+      </fieldset>
+    </details>
+
+    <button id="submitBtn" type="submit">Render</button>
+  </form>
+
+  <p id="error" class="error hidden"></p>
+
+  <section id="result" class="hidden">
+    <h2>Result</h2>
+    <div id="metadata" class="meta"></div>
+    <p>
+      <a id="downloadPng" href="#" download>Download PNG</a> |
+      <a id="downloadMd" href="#" download>Download MD</a>
+    </p>
+    <img id="previewImage" alt="Screenshot preview" />
+    <h3>Markdown Preview</h3>
+    <textarea id="markdownPreview" readonly></textarea>
+  </section>
+
+  <script>
+    const form = document.getElementById('render-form');
+    const submitBtn = document.getElementById('submitBtn');
+    const errorEl = document.getElementById('error');
+    const resultEl = document.getElementById('result');
+
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      submitBtn.disabled = true;
+      errorEl.classList.add('hidden');
+      resultEl.classList.add('hidden');
+
+      const blockResources = Array.from(document.querySelectorAll('.blockResource:checked')).map(el => el.value);
+
+      const payload = {
+        url: document.getElementById('url').value,
+        options: {
+          waitUntil: document.getElementById('waitUntil').value,
+          timeoutMs: Number(document.getElementById('timeoutMs').value),
+          viewportPreset: document.getElementById('viewportPreset').value,
+          fullPage: document.getElementById('fullPage').checked,
+          waitForSelector: document.getElementById('waitForSelector').value,
+          userAgent: document.getElementById('userAgent').value,
+          blockResources
+        }
+      };
+
+      try {
+        const res = await fetch('/render', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+
+        if (!res.ok) {
+          throw new Error(`${data.error.code}: ${data.error.message}`);
+        }
+
+        document.getElementById('metadata').textContent = `title: ${data.metadata.title || '-'} | finalUrl: ${data.metadata.finalUrl} | status: ${data.metadata.status} | ms: ${data.metadata.timings.ms}`;
+        document.getElementById('previewImage').src = data.downloadUrls.png;
+        document.getElementById('downloadPng').href = data.downloadUrls.png;
+        document.getElementById('downloadMd').href = data.downloadUrls.md;
+        document.getElementById('markdownPreview').value = data.markdownPreview;
+        resultEl.classList.remove('hidden');
+      } catch (error) {
+        errorEl.textContent = error.message;
+        errorEl.classList.remove('hidden');
+      } finally {
+        submitBtn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
